@@ -1,0 +1,12 @@
+data/
+web/node_modules/
+web/dist/
+.DS_Store
+__pycache__/
+.venv/
+.env
+.env.*
+!.env.example
+.wrangler/
+.dev.vars
+.dev.vars.*
