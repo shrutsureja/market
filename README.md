@@ -1,31 +1,50 @@
 # FPI Flow Dashboard
 
-A local-first MVP for importing NSDL fortnightly FPI HTML reports and viewing sector-level equity flows.
+Import NSDL fortnightly FPI HTML reports, browse sector equity flows in React, and download normalized Excel workbooks. The same parser powers the local Python application and the Cloudflare Python Worker.
 
-## Run locally
+**Production is blocked, not deployed.** The requested hostname is `https://fpi.shrutsureja.com`. The available Cloudflare credential cannot create D1 or Access applications, and R2 is not enabled. No public stub or Tunnel was created. See [DEPLOYMENT.md](DEPLOYMENT.md) for evidence and the release procedure.
 
-Use Python 3.12 (the current upload handler uses `cgi`) and Node.js. Install Python dependencies with `python3 -m pip install -r requirements.txt`.
+## Local application
 
-```sh
-python3 app.py
-```
-
-In a second terminal:
+Install [uv](https://docs.astral.sh/uv/) and Node.js. Python 3.12 is pinned for the existing WSGI server, which uses `cgi`.
 
 ```sh
-cd web && npm install && npm run dev
+uv sync --locked
+npm ci
+npm --prefix web ci
+uv run python app.py
+# In another terminal:
+npm --prefix web run dev
 ```
 
-Open the React dashboard at `http://localhost:5173`. Python provides the local API, SQLite storage, HTML validation, and Excel export; React provides the mobile-friendly screens.
+Open `http://localhost:5173`. Vite proxies `/api` and `/export` to Python on port 8000. The frontend uses relative URLs in development and production. Python dependencies now live in `pyproject.toml` and `uv.lock`; pywrangler does not accept a root `requirements.txt`.
 
-## Import rules
+Local reports are in `data/market.db`; raw HTML, including rejected sources, is in `data/raw/`. The old Go directories are not the running backend. `internal/sources/nsdl/testdata/` contains the three shared report fixtures.
 
-The importer stores every raw upload, including failed imports. It detects tables by visible headings and column labels rather than HTML classes. A report is accepted only when a report date, sector table, `Net Investment / IN INR Cr. / Equity`, and `AUC ... / IN INR Cr. / Equity` columns can be found and numeric sector rows are valid.
+## Verification
 
-Imported reports and normalized sector rows are stored locally in `data/market.db`. Raw HTML is kept in `data/raw/`, including a source that fails validation, so new NSDL formats can be investigated safely.
+```sh
+uv run python -m unittest -v test_app
+uv run python -m unittest discover -s tests -v
+npm --prefix web test
+npm --prefix web run build
+uv run python -m scripts.test_worker
+uv run pywrangler deploy --dry-run
+```
 
-## Verification and cloud deployment
+`test_worker` runs the real local workerd runtime, applies migrations to an isolated database, exercises D1/R2 and XLSX through HTTP, drives desktop/mobile Chrome, restarts the Worker, checks stored bytes and database rows, and tests full-origin anonymous/forged-header denial. Set `CHROME_PATH` if Chrome is not at `/usr/bin/google-chrome`. Test state is temporary and does not touch local application data or cloud resources.
 
-Run `python3 -m unittest -v test_app.py` and `npm --prefix web run build`.
+For interactive Worker development:
 
-See [the Cloudflare deployment plan](DEPLOYMENT.md) for the proposed Python Worker, React static assets, D1, R2 and family-only Access setup. The app currently runs locally; the Worker adapter is not implemented yet. The Go directories are an earlier prototype, not the active backend.
+```sh
+npx wrangler d1 migrations apply DB --local --env local
+uv run pywrangler dev --env local --ip 127.0.0.1 --port 8787
+```
+
+The `local` environment bypasses Access **only on loopback hosts**. Never deploy that environment. The production template has no authentication bypass and rejects every request until valid Access configuration exists.
+
+## Import semantics
+
+An accepted report requires a report date, matching reporting period, sector table, direct-equity INR net-investment and AUC columns, finite numeric rows, and source grand totals. Whole-crore rounding tolerance is half a crore per displayed sector plus half a crore for the total. Sector values are never adjusted to force equality.
+
+Cloud uploads are size-bounded to 10 MiB, stored under a SHA-256 key in private R2 before parsing, and recorded in D1 import attempts. Accepted report/flow writes are one transactional batch; unique date/hash and sector constraints protect against duplicate races. Invalid and duplicate uploads retain their raw source and diagnostics. Infrastructure failures retain raw objects for retry. Excel generation is entirely in memory.

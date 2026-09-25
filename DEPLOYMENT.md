@@ -1,98 +1,133 @@
-# Cloudflare deployment plan
+# Cloudflare deployment and release record
 
-Status: proposed; no cloud resources have been created and nothing has been deployed.
-Documentation checked on 25 September 2026.
+## Current status — 25 September 2026
 
-## Recommended setup
+Implementation and local verification are available. **Production has not been deployed.** No Cloudflare Tunnel, frontend-only stub, DNS record, or public upload endpoint was created.
 
-Keep Python and React. Use one Cloudflare Worker application with the built React assets, a Python API, a D1 database, and a private R2 bucket. Protect the entire application with Cloudflare Access so only the family’s approved email addresses can use it.
+Requested URL: `https://fpi.shrutsureja.com` (DNS lookup currently fails).
 
-| Current local component | Cloudflare destination |
+Existing account: `552fb83dc41d7e9a61b0be7bc97471ea`.
+Existing zone: `0a6b6d8f01dad87929e79e597a150837` (`shrutsureja.com`).
+
+Live API attempts using the supplied credential returned:
+
+| Operation | Result |
 | --- | --- |
-| React/Vite frontend in `web/` | Worker Static Assets, built from `web/dist/` |
-| Python WSGI server in `app.py` | Python Worker request handler |
-| `data/market.db` | D1 database, accessed through a binding |
-| `data/raw/` HTML uploads | Private R2 bucket, accessed through a binding |
-| Unauthenticated localhost access | Cloudflare Access on the application hostname |
+| List/create D1 database `fpi-market` | HTTP 401, code 10000, authentication error |
+| List/create R2 bucket `fpi-market-raw` | HTTP 403, code 10042, enable R2 in the dashboard |
+| Read Access organization | HTTP 403, code 10000 |
+| List Access identity providers | Success, empty list |
+| List Access applications | Success, empty list |
+| Create deny-all `fpi-market` Access application | HTTP 403, code 1010, `auth.forbidden` |
+| Read account owner through `/user` or account members | HTTP 403 |
 
-This avoids a second hosting provider or a server to maintain. The Python Worker and Excel library must pass a compatibility test first. Cloudflare supports Python through its Workers runtime, but that does not make the current WSGI server deployable unchanged. See [Python Workers](https://developers.cloudflare.com/workers/languages/python/) and [supported Python packages](https://developers.cloudflare.com/workers/languages/python/packages/).
+The account display name suggests `Shrutsureja.code@gmail.com`; that is **not a verified owner identity**. Obtain confirmation before provisioning its allow policy. No new resource IDs or deployment version IDs exist. Zero UUIDs in `wrangler.jsonc` are deliberately non-deployable placeholders, not real resources.
 
-Workers can serve the frontend build alongside application code. D1 provides SQLite semantics through its API; it is not a persistent local `.db` file. R2 provides persistent object storage. See [Static Assets](https://developers.cloudflare.com/workers/static-assets/), [D1](https://developers.cloudflare.com/d1/), and [storage options](https://developers.cloudflare.com/workers/platform/storage-options/).
+Required account work: enable R2; authorize account D1 Edit, Workers Scripts Edit, R2 Edit, Access Apps and Policies Edit, Access Organizations/Identity Providers Read, and zone/DNS access for this domain; complete existing Zero Trust login-provider setup; confirm the owner email. The scripts never change a billing plan or enroll an identity provider automatically. Review the Workers plan and usage notifications in the dashboard before enabling imports.
 
-## 1. Prove runtime compatibility locally
+Production import/export, owner login, unauthorized-email login, remote migration, remote persistence, R2 privacy and persistence after **production redeploy** remain unverified. Local-runtime restart tests are not evidence of a production redeploy.
 
-- Create a Python Worker using Cloudflare’s documented `pywrangler` workflow; pin its Python dependencies and compatibility date.
-- Extract the parser from `app.py` into a reusable module without server, database, or filesystem imports. Run all three fixtures through the Worker runtime.
-- Test `openpyxl`, including its dependencies, by generating an XLSX in memory and reading it back locally. Verify the 24 sector rows, cell types, dates, and financial values.
-- Exercise multipart upload parsing with the Worker request API. Replace `cgi.FieldStorage` and `wsgiref`; do not try to start a listening server inside a Worker. The existing local application currently requires Python 3.12 because `cgi` was removed in Python 3.13.
-- Measure import and export runtime and memory using the real reports. Compare with the selected Workers plan’s current limits before choosing it.
+## Architecture and contracts
 
-Gate: do not deploy the frontend alone and call it a working app. If the Python/XLSX compatibility test fails, resolve that blocker before proceeding. No Go rewrite is needed.
+One Python Worker serves the React build and these unchanged API contracts:
 
-## 2. Adapt persistence and API routing
+- `GET /api/reports`: report records in descending date order, including persisted `totalNet`.
+- `GET /api/flows` and `/api/flows/latest`: `id`, `sectorName`, `equityNetInvestmentCr`, `equityAucCr`, `reportDate`, `periodStart`, `periodEnd`.
+- `POST /api/reports/import`: multipart `file`; 201 with `id`, `reportDate`, `sectorCount`, or 400 with `error` for invalid/duplicate input.
+- `GET /export/:id`: normalized XLSX, 24 sectors for each fixture. Missing API/export routes return JSON 404, never SPA HTML.
 
-- Preserve the existing `/api/reports`, `/api/flows`, `/api/flows/latest`, `/api/reports/import`, and `/export/:id` contracts.
-- Replace local `sqlite3` operations with parameterized D1 binding calls. Use a transactional D1 batch for the accepted report and all sector rows, and enforce uniqueness in the database to handle simultaneous duplicate uploads.
-- Add checked-in schema migrations. Keep report IDs, date ranges, source hash, parser version, source grand totals, import status/error, and timestamps. Retain unique report-date/source constraints and unique `(report_id, sector)` rows. Add a separate import-attempt record for failed and duplicate uploads.
-- Store raw uploads in R2 before parsing, using a hash-based object key. Failed validation must retain the object and diagnostics, but create no accepted sector rows. Keep R2 private; access it only through the Worker.
-- R2 and D1 do not share a transaction. Use idempotent object keys, transactional D1 writes, and retryable import attempts. If a database write fails after upload, retain the object for retry and inspection.
-- Parse source grand totals once during import and persist them. The current reports endpoint rereads the HTML from disk; replace this with a database read.
-- Convert local raw-file paths to R2 keys. Do not return filesystem paths in the cloud API.
-- Keep upload size checks, strict numeric validation, duplicate protection, and total reconciliation with documented whole-crore rounding tolerance.
-- Use relative frontend requests on the shared origin instead of hard-coded `http://localhost:8000`. Configure a Vite development proxy for `/api` and `/export` so local development still works.
-- Serve `/api/*` and `/export/*` through the Python handler and other requests through the static assets binding. Ensure SPA fallback never turns a missing API route into a successful HTML response.
-- Generate Excel in memory and return it directly; no server-side export directory is required. Keep the current normalized report export. A faithful original-layout Excel export is separate feature work, not something the current app already supports.
+Cloud `raw_path` is an R2 key, not a local filesystem path. Internal failures return 503 with a retry message. Auth denial is 403 at the Worker; Access may intercept earlier with its login redirect. Same-origin write checks reject cross-origin browser uploads.
 
-## 3. Prepare a private staging environment
+`cloud/fpi/core.py` contains the portable parser and Excel generator. `cloud/fpi/store.py` uses bound parameters and a D1 transaction for report, sector rows and accepted-attempt status. `migrations/0001_initial.sql` preserves report date/period, source hash, parser version, source totals, status/error and timestamps, plus separate import attempts.
 
-Account prerequisites: a Cloudflare account with Workers, D1 and R2 access; a hostname/domain choice; approved family email addresses; and agreement to any applicable account or billing requirements. Do not assume every service is free—check current pricing and configure usage notifications before enabling uploads.
+Raw objects use `raw/<sha256>.html`. Accepted, malformed and duplicate uploads retain source bytes; identical bytes reuse the object. Oversized requests are rejected before storage. R2/D1 are not a distributed transaction: a D1 outage can leave a raw object without an attempt; a failed report batch leaves a pending attempt. Retry the same source after recovery. Retain pending attempts as diagnostics; inspect orphaned objects during maintenance, and do not delete them automatically.
 
-Create staging resources first: one Worker, one D1 database and one private R2 bucket. Record identifiers in the Worker configuration; keep credentials in Cloudflare secrets or CI secrets, never in React build variables or Git.
+All frontend requests and fonts use the same origin. `assets.run_worker_first=true` gates every asset/page/API/download. `workers_dev=false` and `preview_urls=false` disable alternate public URLs. Worker code independently verifies Access JWT RS256 signatures against the configured team's JWKS, issuer, audience, expiry, issue time and owner email. Missing configuration or failed verification denies access. A supplied email header alone never authorizes a request. No service-token bypass is enabled.
 
-Add Cloudflare Access to the full staging hostname, covering the dashboard, API, and downloads. Test an allowed email and an unapproved email. Prevent bypass through default `workers.dev`, preview URLs, or any alternate route: disable them or protect them too. Do not rely on hiding the upload button. See [Access web applications](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/).
+## Toolchain and local gates
 
-Future build/deploy sequence, after the Worker adapter and configuration exist:
+Install uv, Node and Chrome. Use `.python-version` (3.12) for the legacy local server. Python Workers run their separate Pyodide runtime. The checked-in locks pin frontend packages, Wrangler 4.139.0, workers-py 1.17.4, the runtime SDK and openpyxl 3.1.5. `pylock.toml` pins the Worker packages. Compatibility date is `2026-09-23`, supported by the pinned workerd binary.
 
 ```sh
-python3 -m unittest -v test_app.py
+uv sync --locked
+npm ci
 npm --prefix web ci
+uv run python -m unittest -v test_app
+uv run python -m unittest discover -s tests -v
+npm --prefix web test
 npm --prefix web run build
-# From the planned Python Worker project, with pywrangler installed/configured:
-uv run pywrangler deploy --env staging
+uv run python -m scripts.test_worker
+uv run pywrangler deploy --dry-run
 ```
 
-These are planning instructions, not commands supported by the repository yet. Add the Worker project, environment bindings, asset directory, secrets, migrations and a repeatable deployment script during implementation. The current repository has no deployable Worker configuration.
+The Worker test creates isolated local D1/R2 state, applies the checked-in migration, imports all fixtures, checks every exported financial value, exercises bad totals/missing columns/malformed/oversized/duplicate uploads, checks API 404 and cross-origin rejection, uses Chrome at desktop and phone widths, restarts the Worker and compares IDs/data, retrieves accepted/rejected R2 objects byte-for-byte, queries attempt statuses, and checks anonymous/forged auth denial on pages, assets, APIs and exports.
 
-## 4. Move the existing reports
+The dry run packages the complete backend and static build; it does not create resources or deploy. Only `cloud/` and vendored dependencies are bundled, excluding local credentials, databases, test fixtures and Python virtual environments.
 
-Back up local SQLite and raw HTML first. For these three reports, the simplest migration is to upload the original HTML files through the protected staging app. This revalidates the data and avoids copying absolute local paths or earlier incorrectly parsed records.
+Local workerd import wall times were several seconds per 324 KiB fixture, with XLSX exports around 0.1–0.2 seconds after warmup. These are local wall measurements, not production CPU or memory measurements. Do not assume the free plan is sufficient: Cloudflare documents a 10 ms free CPU budget and a default 30-second paid CPU budget. Verify CPU, memory, cold start and account plan on protected staging before releasing; see [Workers limits](https://developers.cloudflare.com/workers/platform/limits/). No paid-plan change has been made.
 
-Expected published equity net totals:
+## Credentials and safe preflight
 
-| Report date | NSDL grand total, ₹ crore | Sum of displayed sector values, ₹ crore |
-| --- | ---: | ---: |
-| 15 Aug 2026 | 16,621 | 16,618 |
-| 31 Aug 2026 | 13,010 | 13,010 |
-| 15 Sep 2026 | -14,116 | -14,116 |
+Never paste tokens into commands, Git or frontend variables. The helper loads `~/.openclaw/credentials/cloudflare.json`, exports `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` inside the process, and runs a child command without printing either secret value. It also respects already exported credentials.
 
-The August 15 difference is within the rounding tolerance for individually rounded source rows. Show source totals as source totals; do not adjust sector values to force equality. Each report has 24 sectors. Verify September’s 48 equity flow/AUC values against the provided workbook again after migration.
+```sh
+uv run python -m scripts.deployment preflight
+# Example of safely credentialing a Wrangler command:
+uv run python scripts/cloudflare.py npx wrangler d1 list
+```
 
-## 5. Release checks and production deployment
+Preflight is read-only. It reports all unavailable prerequisites and exits nonzero. Provisioning does no mutations if this preflight fails. Deployment additionally checks real resource IDs, owner-only Access policy, matching application audience, disabled alternate URLs, authentication before static assets, and private R2 domains. It refuses the checked-in placeholder template.
 
-- Authorized users can browse; unauthorized users cannot reach any page, API or export.
-- The overview, period selector, heatmap, sector history, comparison and Excel download work on desktop and a phone.
-- Duplicate, malformed, missing-column and invalid-total uploads fail clearly and preserve raw input without partial normalized rows.
-- Reloading or redeploying does not lose reports or uploaded objects.
-- Excel contains the selected report’s 24 sectors and correct numeric values.
-- No browser requests point to localhost; no secrets or SQLite backups are in the frontend bundle.
-- Record the tested Git commit, dependency locks and migration version. Pin dependencies before enabling automated cloud deployment; the frontend manifest currently uses `latest` ranges, although the lockfile fixes `npm ci` installs.
+## Staging, then production
 
-After staging passes, create separate production D1/R2 resources and Access rules, deploy the tested version, and import the same source reports. Connect GitHub deployment only after the initial manual release works. Keep production deployment explicit rather than deploying every branch; give previews their own data and access controls.
+After the prerequisites above are fixed, supply the confirmed owner email:
 
-## 6. Backup and rollback
+```sh
+uv run python -m scripts.provision staging --owner-email CONFIRMED_OWNER_EMAIL
+uv run python -m scripts.deployment deploy --config wrangler.staging.json
+```
 
-Keep source HTML recoverable and retain periodic D1 exports in private storage. Take a database backup before schema changes. Record each application release so a previous Worker version can be restored. Code rollback does not undo database migrations: use additive migrations, verify old-code compatibility, and restore data separately only if required. Test recovery into staging before relying on it.
+Provisioning uses `fpi-market-staging`, D1 `fpi-market-staging`, private R2 `fpi-market-staging-raw`, and Access on the complete hostname `fpi-market-staging.shrutsureja.com`. Existing resources are reused by name, and public buckets are rejected. The only Access allow policy includes the owner's exact email through existing identity providers. It writes a concrete Wrangler config containing the returned resource IDs, audience and custom domain. Review and commit that nonsecret config.
 
-## Current scope and next implementation task
+The deploy script repeats Python/frontend/Worker gates, applies the remote migrations, then deploys the complete Python Worker and React assets. Access must exist before the hostname is published. There is no Tunnel and no anonymous staging route.
 
-This commit is a local MVP plus this plan. Cloudflare deployment requires the Python runtime adapter, D1/R2 persistence, shared-origin frontend routing, Access setup, and staging validation above. The old Go prototype under `cmd/` and `internal/` is not part of the running application or cloud design; `internal/sources/nsdl/testdata/` still contains the Python test fixtures. Remove obsolete Go code and relocate fixtures in a separate cleanup when preparing the Worker port.
+Sign in as the owner in a browser, verify every screen, and run the HTTP smoke suite using an owner session. Set `FPI_TEST_URL` and `FPI_TEST_HEADERS` in a private environment, with `FPI_TEST_HEADERS` a JSON object containing the session's `Cookie` header. Never put the session value in a command argument, log or committed file. The suite imports the three real sources, so run it only against the intended empty/three-fixture environment.
+
+```sh
+uv run python -m unittest runtime_tests.smoke -v
+```
+
+Without a session, check `/`, asset URLs, every API and `/export/:id`: each must redirect to Access or deny access, never return app data or accept an upload. Repeat with a forged JWT/email header and an unapproved email login. Check the workers.dev and preview addresses remain disabled. In authenticated Chrome, verify overview, period selector, heatmap, sector history, comparison, malformed/duplicate feedback and download at desktop and phone widths. Check browser network requests have no localhost references.
+
+Inspect remote D1 and R2 directly, using the credential helper:
+
+```sh
+uv run python scripts/cloudflare.py npx wrangler d1 execute DB --remote --config wrangler.staging.json --command 'SELECT report_date,totalNet FROM reports ORDER BY report_date'
+uv run python scripts/cloudflare.py npx wrangler d1 execute DB --remote --config wrangler.staging.json --command 'SELECT status,COUNT(*) FROM import_attempts GROUP BY status'
+# Replace HASH with a source's SHA-256; save output in private ignored data/.
+uv run python scripts/cloudflare.py npx wrangler r2 object get fpi-market-staging-raw/raw/HASH.html --remote --file data/verified-source.html
+```
+
+Expected source totals are 16,621 (15 Aug), 13,010 (31 Aug), and −14,116 (15 Sep 2026). There are 3 reports and 72 sector rows. August 15 sector values sum to 16,618: the documented source rounding tolerance permits that difference. Test XLSX against all 48 September equity flow/AUC values in the HTML fixture. The originally mentioned separate workbook is not present in this repository and cannot be independently rechecked here.
+
+Record report IDs and R2 hashes, redeploy the same configuration, rerun the smoke suite, and confirm all IDs/values/object bytes survive. Capture the actual Worker version, migration version, Git commit, resource IDs and authenticated/denied check results in this release record. Only after protected staging passes:
+
+```sh
+uv run python -m scripts.provision production --owner-email CONFIRMED_OWNER_EMAIL
+uv run python -m scripts.deployment deploy --config wrangler.production.json
+```
+
+Production names are Worker/D1 `fpi-market`, R2 `fpi-market-raw`, Access application `fpi-market`, hostname `fpi.shrutsureja.com`. Repeat all remote checks and redeploy persistence checks against production. Commit concrete configs and verified release evidence, then push the existing default branch. Do not claim completion based on a deployment upload alone.
+
+## Backup, rollback and maintenance
+
+Keep source HTML private and back up local `data/` before moving existing reports. Reimport original files through the protected API; do not copy filesystem paths into D1. Before future schema changes, export D1 into private ignored storage:
+
+```sh
+mkdir -p data/backups
+uv run python scripts/cloudflare.py npx wrangler d1 export DB --remote --config wrangler.production.json --output data/backups/fpi-market.sql
+```
+
+Retain raw R2 objects and copy exports to private backup storage according to the owner's retention policy. Never enable an R2 public URL for convenience. Test restoring backups into staging before relying on them. Record each Worker deployment/version; restore a known-good version with Wrangler rollback if necessary. Code rollback does not undo D1 migrations, so prefer additive changes and handle data restore separately. Keep Access in place throughout failures and rollback.
+
+References: [Python Workers](https://developers.cloudflare.com/workers/languages/python/), [packages](https://developers.cloudflare.com/workers/languages/python/packages/), [static assets](https://developers.cloudflare.com/workers/static-assets/), [D1](https://developers.cloudflare.com/d1/), [Access applications](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/).

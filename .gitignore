@@ -10,3 +10,15 @@ __pycache__/
 .wrangler/
 .dev.vars
 .dev.vars.*
+# Nightshift plan artifacts (keep out of version control)
+.nightshift-plan
+
+.tools/
+node_modules/
+python_modules/
+.worker-test-state/
+
+.venv-workers/
+
+test-results/
+playwright-report/
