@@ -43,7 +43,7 @@ export function Overview({ reports, selected, flows, before, previous, onSelectS
           <div className="card-label">
             TOTAL NET FLOW <span>₹ crore</span>
           </div>
-          <div className="big-number">
+          <div className={`big-number ${tone(total)}`}>
             {total < 0 ? "−" : total > 0 ? "+" : ""}₹{number(total)}
             <small>Cr</small>
           </div>

@@ -4,6 +4,9 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-09-23",
   "workers_dev": true,
+  "routes": [
+    { "pattern": "fpi.shrutsureja.com", "custom_domain": true }
+  ],
   "assets": {
     "directory": "web/dist",
     "binding": "ASSETS",
@@ -14,7 +17,7 @@
     {
       "binding": "DB",
       "database_name": "fpi-market",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "8fca2f4d-faa0-4b7c-b2b0-6fd4213ab9af",
       "migrations_dir": "migrations"
     }
   ]

@@ -86,7 +86,7 @@ export function SectorHeatmap({ reports, flows, sectors, onSelectSector }) {
                   const share = flow ? flowShare(flow.equityNetInvestmentCr, flow.openingAucCr) : null;
                   const intensity = mode === "pct" ? (share == null ? 0 : 0.1 + (Math.abs(share) / maxPct) * 0.7) : v == null ? 0 : 0.1 + (Math.abs(v) / maxCr) * 0.7;
                   return (
-                    <td key={r.id} style={{ background: v == null ? "#f4f5f6" : v >= 0 ? `rgba(36,149,116,${intensity})` : `rgba(225,97,81,${intensity})` }}>
+                    <td key={r.id} style={{ background: v == null ? "#f4f4f4" : v >= 0 ? `rgba(42,157,74,${intensity})` : `rgba(223,81,76,${intensity})` }}>
                       {v == null ? (
                         "—"
                       ) : mode === "pct" ? (
