@@ -1,5 +1,5 @@
 import { period } from "../lib/format.js";
-import { exportUrl } from "../api.js";
+import { downloadExcel } from "../api.js";
 
 export function Reports({ reports }) {
   return (
@@ -11,12 +11,12 @@ export function Reports({ reports }) {
           <span className="document-icon">▤</span>
           <div>
             <b>{period(r)}</b>
-            <small>{r.filename}</small>
+            <small>{r.hasSource ? r.filename : "Upload this fortnight's HTML again to include the full NSDL table in its Excel"}</small>
           </div>
-          <span className="badge">Imported</span>
-          <a className="export" href={exportUrl(r.id)}>
+          <span className="badge">{r.hasSource ? "Full table" : "Summary only"}</span>
+          <button type="button" className="export" onClick={() => downloadExcel(r.id).catch((e) => alert(e.message))}>
             ↓ Excel
-          </a>
+          </button>
         </div>
       ))}
     </section>

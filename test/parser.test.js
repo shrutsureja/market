@@ -25,6 +25,17 @@ for (const c of cases) {
   });
 }
 
+test("keeps the whole page for the Excel export", () => {
+  const { source } = parseDocument(fixture("2026-09-15.html"));
+  const tables = source.filter((b) => b.type === "table");
+  assert.equal(tables.length, 5);
+  assert.equal(source[0].text, "NSDL : Fortnightly Sector-wise FII Investment data");
+  const width = (row) => row.reduce((s, c) => s + c.span, 0);
+  assert.ok(tables[0].rows.every((row) => width(row) === 98 || row.length === 1));
+  const auto = tables[0].rows.find((row) => row.some((c) => c.text === "Automobile and Auto Components"));
+  assert.equal(auto[2].text, "5,48,262");
+});
+
 test("rejects a document without the expected sector table", () => {
   assert.throws(() => parseDocument("<table><tr><td>nothing useful</td></tr></table>"), UserError);
 });

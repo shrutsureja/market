@@ -18,43 +18,59 @@ function decodeEntities(text) {
   });
 }
 
-// Reduces every <table> in the document to rows of cell text, expanding colspan by repeating
-// the cell value so column indices line up the same way html.parser-based logic expects.
-function parseTables(html) {
-  const tables = [];
-  let table = null, row = null, cell = null, text = null, span = 1;
+const clean = (chunks) => decodeEntities(chunks.join("")).replace(/\s+/g, " ").trim();
+
+// Reads the page top to bottom as blocks: loose text (title, headings between tables) and
+// tables, whose rows keep each cell's colspan so the Excel export can merge cells the same way.
+export function readDocument(html) {
+  const blocks = [];
+  let table = null, row = null, cell = null, span = 1, loose = [];
+  const flushLoose = () => {
+    const text = clean(loose);
+    if (text) blocks.push({ type: "text", text });
+    loose = [];
+  };
   const tokenRe = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>|([^<]+)/g;
+  const body = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<!--[\s\S]*?-->|<![^>]*>/g, " ");
   let match;
-  while ((match = tokenRe.exec(html))) {
+  while ((match = tokenRe.exec(body))) {
     const [, closing, tagName, attrs, textChunk] = match;
     if (textChunk !== undefined) {
-      if (cell) text.push(textChunk);
+      if (cell) cell.push(textChunk);
+      else if (!table) loose.push(textChunk);
       continue;
     }
     const tag = tagName.toLowerCase();
-    if (!closing) {
-      if (tag === "table") table = [];
-      else if (tag === "tr" && table) row = [];
+    if (tag === "br") {
+      if (cell) cell.push(" ");
+      else if (!table) loose.push(" ");
+    } else if (!closing) {
+      if (tag === "table") {
+        flushLoose();
+        table = [];
+      } else if (tag === "tr" && table) row = [];
       else if ((tag === "td" || tag === "th") && row) {
-        cell = true;
-        text = [];
+        cell = [];
         const spanMatch = /colspan\s*=\s*["']?(\d+)/i.exec(attrs);
         span = spanMatch ? parseInt(spanMatch[1], 10) || 1 : 1;
       }
     } else if ((tag === "td" || tag === "th") && cell) {
-      const value = decodeEntities(text.join("")).replace(/\s+/g, " ").trim();
-      for (let i = 0; i < span; i++) row.push(value);
-      cell = false;
+      row.push({ text: clean(cell), span });
+      cell = null;
     } else if (tag === "tr" && row) {
       table.push(row);
       row = null;
     } else if (tag === "table" && table) {
-      tables.push(table);
+      blocks.push({ type: "table", rows: table });
       table = null;
     }
   }
-  return tables;
+  flushLoose();
+  return blocks;
 }
+
+// Repeats each cell across its colspan so column indices line up across header rows.
+const expand = (row) => row.flatMap((c) => Array(c.span).fill(c.text));
 
 function parseDate(value) {
   const cleaned = value.trim().replace(/,/g, "");
@@ -90,11 +106,13 @@ function number(raw) {
 }
 
 /**
- * Parses raw NSDL report bytes (as a UTF-8 string) into
- * { reportDate, periodStart, periodEnd, flows: [[sector, net, auc]], totalNet, totalAuc }.
+ * Parses an NSDL report's HTML into
+ * { reportDate, periodStart, periodEnd, flows: [[sector, net, auc]], totalNet, totalAuc, source },
+ * where source is the whole page as readDocument blocks, kept for the Excel export.
  */
 export function parseDocument(html) {
-  const tables = parseTables(html);
+  const source = readDocument(html);
+  const tables = source.filter((b) => b.type === "table").map((b) => b.rows.map(expand));
   const table = tables.find(
     (t) =>
       t.some((row) => row.some((c) => c.toLowerCase() === "sectors")) &&
@@ -169,5 +187,5 @@ export function parseDocument(html) {
     throw new UserError("Grand Total validation failed; import stopped");
   }
 
-  return { reportDate, periodStart, periodEnd, flows, totalNet: total[0], totalAuc: total[1] };
+  return { reportDate, periodStart, periodEnd, flows, totalNet: total[0], totalAuc: total[1], source };
 }

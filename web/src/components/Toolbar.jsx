@@ -1,5 +1,5 @@
 import { period } from "../lib/format.js";
-import { exportUrl } from "../api.js";
+import { downloadExcel } from "../api.js";
 
 export function Toolbar({ reports, selected, setSelected, report }) {
   return (
@@ -17,9 +17,9 @@ export function Toolbar({ reports, selected, setSelected, report }) {
       </label>
       <div className="toolbar-right">
         <span className="badge">FPI · Equity</span>
-        <a className="export" href={exportUrl(report.id)}>
+        <button type="button" className="export" onClick={() => downloadExcel(report.id).catch((e) => alert(e.message))}>
           ↓ Download Excel
-        </a>
+        </button>
       </div>
     </div>
   );

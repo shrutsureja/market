@@ -38,7 +38,7 @@ export function useReports() {
         const body = new FormData();
         body.append("file", file);
         const d = await request("/api/reports/import", { method: "POST", body });
-        results.push(`${file.name}: added ${d.sectorCount} sectors`);
+        results.push(d.backfilled ? `${file.name}: full NSDL table saved for Excel` : `${file.name}: added ${d.sectorCount} sectors`);
       } catch (e) {
         results.push(`${file.name}: ${e.message}`);
       }

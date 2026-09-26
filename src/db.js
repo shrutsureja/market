@@ -10,7 +10,13 @@ async function sha256Hex(bytes) {
 }
 
 export async function listReports(db) {
-  const { results } = await db.prepare("SELECT * FROM reports ORDER BY report_date DESC").all();
+  const { results } = await db
+    .prepare(
+      `SELECT id, report_date, period_start, period_end, filename, imported_at, totalNet, totalAuc,
+              source_doc IS NOT NULL AS hasSource
+       FROM reports ORDER BY report_date DESC`,
+    )
+    .all();
   return results;
 }
 
@@ -38,7 +44,7 @@ export async function getReportWithFlows(db, id) {
   const report = await db.prepare("SELECT * FROM reports WHERE id = ?").bind(id).first();
   if (!report) return null;
   const { results: flows } = await db.prepare("SELECT sector, net, auc FROM flows WHERE report_id = ? ORDER BY sector").bind(id).all();
-  return { report, flows: flows.map((f) => [f.sector, f.net, f.auc]) };
+  return { report, flows: flows.map((f) => [f.sector, f.net, f.auc]), source: report.source_doc ? JSON.parse(report.source_doc) : null };
 }
 
 export async function importReport(db, raw, filename) {
@@ -47,21 +53,37 @@ export async function importReport(db, raw, filename) {
   const html = new TextDecoder("utf-8", { fatal: false }).decode(raw);
   const doc = parseDocument(html);
 
+  const sourceDoc = JSON.stringify(doc.source);
   const duplicate = await db
-    .prepare("SELECT id FROM reports WHERE report_date = ? OR hash = ?")
+    .prepare("SELECT id, report_date, source_doc IS NULL AS missingSource FROM reports WHERE report_date = ? OR hash = ?")
     .bind(doc.reportDate, hash)
     .first();
-  if (duplicate) throw new UserError("This fortnight is already in your dashboard");
+  if (duplicate) {
+    // Reports imported before the full page was kept can be topped up by uploading them again.
+    if (duplicate.missingSource && duplicate.report_date === doc.reportDate) {
+      // Only attach the page if its figures are the ones already stored; otherwise the Excel
+      // sheet and the dashboard would disagree about the same fortnight.
+      const { results: stored } = await db.prepare("SELECT sector, net, auc FROM flows WHERE report_id = ?").bind(duplicate.id).all();
+      const key = (sector, net, auc) => `${sector.toLowerCase()}|${net}|${auc}`;
+      const storedKeys = new Set(stored.map((f) => key(f.sector, f.net, f.auc)));
+      if (stored.length !== doc.flows.length || !doc.flows.every(([s, n, a]) => storedKeys.has(key(s, n, a)))) {
+        throw new UserError("This file's figures differ from the ones already saved for this fortnight, so it wasn't used");
+      }
+      await db.prepare("UPDATE reports SET source_doc = ? WHERE id = ?").bind(sourceDoc, duplicate.id).run();
+      return { id: duplicate.id, reportDate: doc.reportDate, sectorCount: doc.flows.length, backfilled: true };
+    }
+    throw new UserError("This fortnight is already in your dashboard");
+  }
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const statements = [
     db
       .prepare(
-        `INSERT INTO reports (id, report_date, period_start, period_end, filename, hash, imported_at, totalNet, totalAuc)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO reports (id, report_date, period_start, period_end, filename, hash, imported_at, totalNet, totalAuc, source_doc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(id, doc.reportDate, doc.periodStart, doc.periodEnd, filename, hash, now, doc.totalNet, doc.totalAuc),
+      .bind(id, doc.reportDate, doc.periodStart, doc.periodEnd, filename, hash, now, doc.totalNet, doc.totalAuc, sourceDoc),
     ...doc.flows.map(([sector, net, auc]) => db.prepare("INSERT INTO flows (report_id, sector, net, auc) VALUES (?, ?, ?, ?)").bind(id, sector, net, auc)),
   ];
 

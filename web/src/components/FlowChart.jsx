@@ -23,7 +23,7 @@ export function FlowChart({ rows, field, colorBySign = false }) {
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9b9b9b" }} axisLine={{ stroke: "#eee" }} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#9b9b9b" }} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => number(v)} />
+          <YAxis tick={{ fontSize: 11, fill: "#9b9b9b" }} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => (v < 0 ? "−" : "") + number(v)} />
           <Tooltip
             formatter={(value, _name, entry) => [colorBySign ? `${signed(value)} Cr (${pct(flowShare(value, entry.payload.openingAuc))} of AUC)` : `${number(value)} Cr`, colorBySign ? "Net flow" : "Equity AUC"]}
             labelStyle={{ color: "#222", fontWeight: 600 }}
