@@ -10,7 +10,10 @@ export function Sidebar({ view, setView }) {
   return (
     <aside>
       <a className="brand" href="#" onClick={() => setView("Overview")}>
-        <span className="brand-icon">↗</span> flowfolio<span className="brand-dot">.</span>
+        <span className="brand-icon">↗</span>
+        <span className="brand-name">
+          NSDL FPI<small>Analysis</small>
+        </span>
       </a>
       <div className="workspace">YOUR MARKET NOTEBOOK</div>
       <nav>
