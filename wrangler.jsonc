@@ -1,23 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "fpi-market",
-  "main": "cloud/worker.py",
+  "main": "src/worker.js",
   "compatibility_date": "2026-09-23",
-  "compatibility_flags": [
-    "python_workers"
-  ],
-  "workers_dev": false,
-  "preview_urls": false,
+  "workers_dev": true,
   "assets": {
     "directory": "web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
-  },
-  "vars": {
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": "",
-    "OWNER_EMAIL": ""
   },
   "d1_databases": [
     {
@@ -26,37 +17,5 @@
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "RAW_UPLOADS",
-      "bucket_name": "fpi-market-raw"
-    }
-  ],
-  "env": {
-    "local": {
-      "name": "fpi-market-local",
-      "vars": {
-        "LOCAL_TEST": "true",
-        "ACCESS_TEAM_DOMAIN": "",
-        "ACCESS_AUD": "",
-        "OWNER_EMAIL": ""
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "fpi-market-local",
-          "database_id": "00000000-0000-0000-0000-000000000001",
-          "migrations_dir": "migrations"
-        }
-      ],
-      "r2_buckets": [
-        {
-          "binding": "RAW_UPLOADS",
-          "bucket_name": "fpi-market-local-raw"
-        }
-      ]
-    }
-  },
-  "base_dir": "cloud"
+  ]
 }

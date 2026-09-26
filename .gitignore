@@ -2,23 +2,14 @@ data/
 web/node_modules/
 web/dist/
 .DS_Store
-__pycache__/
-.venv/
 .env
 .env.*
 !.env.example
 .wrangler/
 .dev.vars
 .dev.vars.*
-# Nightshift plan artifacts (keep out of version control)
-.nightshift-plan
 
-.tools/
 node_modules/
-python_modules/
-.worker-test-state/
-
-.venv-workers/
 
 test-results/
 playwright-report/

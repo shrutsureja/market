@@ -1,50 +1,98 @@
-# FPI Flow Dashboard
+# Flowfolio — FPI sector flow dashboard
 
-Import NSDL fortnightly FPI HTML reports, browse sector equity flows in React, and download normalized Excel workbooks. The same parser powers the local Python application and the Cloudflare Python Worker.
+Turns NSDL's fortnightly "Sector-wise FII Investment data" HTML report into a normalized Excel
+workbook and a small dashboard: overall flow, a sector heatmap, per-sector history, and
+period-over-period comparison. Built for personal use (family, not the public) — no login,
+free-tier Cloudflare hosting.
 
-**Production is blocked, not deployed.** The requested hostname is `https://fpi.shrutsureja.com`. The available Cloudflare credential cannot create D1 or Access applications, and R2 is not enabled. No public stub or Tunnel was created. See [DEPLOYMENT.md](DEPLOYMENT.md) for evidence and the release procedure.
+## How you get new data in
 
-## Local application
+Every fortnight, NSDL publishes a new report. Open it in the browser, save the page
+(Ctrl+S, "Webpage, HTML only"), and upload that `.html` file with the **+ Add report** button.
+The same date can't be imported twice.
 
-Install [uv](https://docs.astral.sh/uv/) and Node.js. Python 3.12 is pinned for the existing WSGI server, which uses `cgi`.
+## Architecture
 
-```sh
-uv sync --locked
-npm ci
-npm --prefix web ci
-uv run python app.py
-# In another terminal:
-npm --prefix web run dev
+One Cloudflare Worker (`src/worker.js`) serves the built React app and a small JSON/XLSX API,
+backed by one D1 (SQLite) database. Everything is plain JavaScript — no Python, no Go, no
+Pyodide, no Cloudflare Access. There's no server to keep running: it only does work when
+someone opens the page or uploads a report.
+
+```
+src/worker.js    fetch handler: static assets + API routes
+src/parser.js    parses the NSDL HTML table into sectors/net-investment/AUC
+src/db.js        D1 queries (reports, flows, import + duplicate detection)
+src/xlsx.js      builds the downloadable workbook
+migrations/      D1 schema
+web/             React (Vite) frontend — web/src/App.jsx plus one file per view
+fixtures/        real NSDL reports, used by tests
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` and `/export` to Python on port 8000. The frontend uses relative URLs in development and production. Python dependencies now live in `pyproject.toml` and `uv.lock`; pywrangler does not accept a root `requirements.txt`.
+API: `GET /api/reports`, `GET /api/flows[/latest]`, `POST /api/reports/import` (multipart
+`file`), `GET /export/:id` (XLSX download).
 
-Local reports are in `data/market.db`; raw HTML, including rejected sources, is in `data/raw/`. The old Go directories are not the running backend. `internal/sources/nsdl/testdata/` contains the three shared report fixtures.
+## Local development
 
-## Verification
-
-```sh
-uv run python -m unittest -v test_app
-uv run python -m unittest discover -s tests -v
-npm --prefix web test
-npm --prefix web run build
-uv run python -m scripts.test_worker
-uv run pywrangler deploy --dry-run
-```
-
-`test_worker` runs the real local workerd runtime, applies migrations to an isolated database, exercises D1/R2 and XLSX through HTTP, drives desktop/mobile Chrome, restarts the Worker, checks stored bytes and database rows, and tests full-origin anonymous/forged-header denial. Set `CHROME_PATH` if Chrome is not at `/usr/bin/google-chrome`. Test state is temporary and does not touch local application data or cloud resources.
-
-For interactive Worker development:
+Install [Node.js](https://nodejs.org) 20+, then:
 
 ```sh
-npx wrangler d1 migrations apply DB --local --env local
-uv run pywrangler dev --env local --ip 127.0.0.1 --port 8787
+npm install
+npm --prefix web install
+npm run db:migrate:local          # creates the local D1 database from migrations/
+npx wrangler dev                  # serves the API + last-built frontend on :8787
 ```
 
-The `local` environment bypasses Access **only on loopback hosts**. Never deploy that environment. The production template has no authentication bypass and rejects every request until valid Access configuration exists.
+For frontend hot-reload, in a second terminal:
+
+```sh
+npm --prefix web run dev          # Vite on :5173, proxies /api and /export to :8787
+```
+
+## Tests
+
+```sh
+npm test          # parser + API-contract tests (node:test), against fixtures/
+npm run test:web  # frontend unit tests
+npm run build     # production frontend build
+```
+
+## Deploying (Cloudflare Workers, free tier)
+
+You need a Cloudflare account and the `wrangler` CLI (already a dependency). Log in once:
+
+```sh
+npx wrangler login
+```
+
+Then, one-time setup:
+
+```sh
+npx wrangler d1 create fpi-market
+```
+
+Copy the `database_id` it prints into `wrangler.jsonc` (`d1_databases[0].database_id`),
+then:
+
+```sh
+npm run db:migrate:remote
+npm run deploy
+```
+
+That deploys to `https://fpi-market.<your-subdomain>.workers.dev` — Wrangler prints the exact
+URL. No DNS setup, no custom domain, no paid plan required. There is no login screen: anyone
+with the link can view the dashboard and upload reports, so don't share the URL beyond your
+family. If you outgrow that later, Cloudflare Access can be layered on in front without
+changing this app.
+
+To redeploy after future changes, `npm run deploy` again. Schema changes go in a new file
+under `migrations/` (e.g. `0002_*.sql`) — never edit `0001_initial.sql` after it's been
+applied anywhere — followed by `db:migrate:remote`.
 
 ## Import semantics
 
-An accepted report requires a report date, matching reporting period, sector table, direct-equity INR net-investment and AUC columns, finite numeric rows, and source grand totals. Whole-crore rounding tolerance is half a crore per displayed sector plus half a crore for the total. Sector values are never adjusted to force equality.
-
-Cloud uploads are size-bounded to 10 MiB, stored under a SHA-256 key in private R2 before parsing, and recorded in D1 import attempts. Accepted report/flow writes are one transactional batch; unique date/hash and sector constraints protect against duplicate races. Invalid and duplicate uploads retain their raw source and diagnostics. Infrastructure failures retain raw objects for retry. Excel generation is entirely in memory.
+An accepted report requires a report date, a matching reporting period, a sector table, direct
+equity net-investment and AUC columns, finite numeric rows, and a source grand total. Reported
+crore values are whole numbers; a half-crore rounding tolerance per sector (plus one for the
+total) is allowed against the source's own Grand Total row. Sector values are never adjusted to
+force equality with it. Duplicate report dates (or byte-identical uploads) are rejected with a
+friendly error instead of a duplicate row.

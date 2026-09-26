@@ -1,11 +1,20 @@
 {
-  "name": "fpi-market-deployment",
+  "name": "fpi-market",
   "private": true,
+  "type": "module",
   "scripts": {
-    "test": "node --test web/api.test.mjs"
+    "build": "npm --prefix web run build",
+    "dev": "npm run build && wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run build && wrangler deploy",
+    "test": "node --test",
+    "test:web": "npm --prefix web test"
+  },
+  "dependencies": {
+    "xlsx-js-style": "1.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
     "wrangler": "4.139.0"
   }
 }
