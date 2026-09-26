@@ -107,7 +107,7 @@ function number(raw) {
 
 /**
  * Parses an NSDL report's HTML into
- * { reportDate, periodStart, periodEnd, flows: [[sector, net, auc]], totalNet, totalAuc, source },
+ * { reportDate, periodStart, periodEnd, flows: [[sector, net, auc, openingAuc]], totalNet, totalAuc, source },
  * where source is the whole page as readDocument blocks, kept for the Excel export.
  */
 export function parseDocument(html) {
@@ -153,6 +153,13 @@ export function parseDocument(html) {
   const periodEnd = isoDate(periodMatch[4], MONTHS[periodMatch[1].toLowerCase()], periodMatch[3]);
   if (periodEnd !== reportDate) throw new UserError("Net Investment period and AUC report date do not reconcile");
 
+  // The first AUC group is the previous fortnight's closing AUC: this fortnight's opening base.
+  const openingCol = aucCols.length > 1 ? aucCols[0] : null;
+  if (openingCol !== null) {
+    const openingMatch = /([A-Za-z]+\s+\d{1,2},?\s*\d{4})/.exec(groups[0]);
+    if (!openingMatch || parseDate(openingMatch[1]) >= reportDate) throw new UserError("Opening AUC date is not before the report date");
+  }
+
   const flows = [];
   const names = new Set();
   let total = null;
@@ -166,25 +173,25 @@ export function parseDocument(html) {
     const sector = row[sectorCol].trim();
     const net = number(row[lastNetCol]);
     const auc = number(row[lastAucCol]);
+    const opening = openingCol === null ? null : number(row[openingCol]);
     if (sector.toLowerCase() === "grand total") {
-      total = [net, auc];
+      total = [net, auc, opening];
       continue;
     }
     const key = sector.toLowerCase();
     if (!sector || names.has(key)) throw new UserError("Blank or duplicate sector name");
     names.add(key);
-    flows.push([sector, net, auc]);
+    flows.push([sector, net, auc, opening]);
   }
   if (flows.length < 10 || flows.length > 100) throw new UserError(`Unexpected sector count: ${flows.length}`);
   if (!total) throw new UserError("Grand Total not found");
 
   // Each source row is rounded to a whole crore: allow at most half a crore per row plus total rounding.
   const tolerance = (flows.length + 1) * 0.5;
-  if (Math.abs(flows.reduce((s, f) => s + f[1], 0) - total[0]) > tolerance) {
-    throw new UserError("Grand Total validation failed; import stopped");
-  }
-  if (Math.abs(flows.reduce((s, f) => s + f[2], 0) - total[1]) > tolerance) {
-    throw new UserError("Grand Total validation failed; import stopped");
+  for (const i of openingCol === null ? [1, 2] : [1, 2, 3]) {
+    if (Math.abs(flows.reduce((s, f) => s + f[i], 0) - total[i - 1]) > tolerance) {
+      throw new UserError("Grand Total validation failed; import stopped");
+    }
   }
 
   return { reportDate, periodStart, periodEnd, flows, totalNet: total[0], totalAuc: total[1], source };

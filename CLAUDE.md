@@ -65,5 +65,6 @@ npm run build                 # production frontend build
 - **Net flow / net investment** — money in minus money out for a fortnight, ₹ crore.
 - **AUC** — market value of FPI holdings at a date. Changes with flows *and* share prices, so a
   fortnight's AUC change is not its net flow.
-- **Opening AUC** — AUC at the start of the fortnight (the previous report's closing AUC).
+- **Opening AUC** — AUC at the start of the fortnight, as printed on the NSDL page (its first
+  AUC group). Equals the previous report's closing AUC.
 - **Fortnight / report** — one NSDL page: the 1st–15th or 16th–end of a month.

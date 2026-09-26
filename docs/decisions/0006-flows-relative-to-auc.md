@@ -1,6 +1,6 @@
 # 0006 — Measure flows against opening AUC
 
-Status: Accepted (2026-09-26)
+Status: Accepted (2026-09-26). Amended by [0011](0011-opening-auc-from-page.md): opening AUC now comes from the NSDL page.
 
 ## Context
 
@@ -23,9 +23,7 @@ and price moves.
 
 ## Consequences
 
-- The first fortnight on the site (15 Jul 2026) is on the closing-AUC basis. Each NSDL page
-  also contains the previous AUC, so this could be made exact by reading it from the page.
-- Opening AUC depends on the previous fortnight being uploaded; a missing fortnight makes the
-  base two fortnights old.
+- As first built, the oldest fortnight fell back to its own closing AUC and a missing fortnight
+  made the base two fortnights old. Both are fixed by [0011](0011-opening-auc-from-page.md).
 - AUC changes are flows plus price movement. The UI and explainer text must never present an
   AUC change as money moved.

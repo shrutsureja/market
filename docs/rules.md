@@ -29,7 +29,8 @@ mistakes made while building it — follow them unless the owner says otherwise.
   make totals match ([ADR 0004](decisions/0004-parsing-and-validation.md)).
 - Changes to `src/parser.js` must keep all tests passing against every file in `fixtures/`. If
   NSDL changes its page layout, add the new page as a fixture before changing the parser.
-- % of AUC uses the opening AUC ([ADR 0006](decisions/0006-flows-relative-to-auc.md)). A
+- % of AUC uses the opening AUC printed on the NSDL page ([ADR 0006](decisions/0006-flows-relative-to-auc.md),
+  [ADR 0011](decisions/0011-opening-auc-from-page.md)). A
   fortnight's AUC change is flows plus price movement — never present it as flows.
 - Analytics are equity-only ([ADR 0005](decisions/0005-equity-only-analytics.md)); other asset
   classes appear only in the Excel export.

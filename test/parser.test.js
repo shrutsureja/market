@@ -25,6 +25,20 @@ for (const c of cases) {
   });
 }
 
+test("reads each sector's opening AUC from the page itself", () => {
+  const { flows } = parseDocument(fixture("2026-09-15.html"));
+  const auto = flows.find(([sector]) => sector === "Automobile and Auto Components");
+  assert.deepEqual(auto, ["Automobile and Auto Components", -2670, 507517, 548262]);
+});
+
+test("each page's opening AUC equals the previous page's closing AUC", () => {
+  const pages = cases.map((c) => parseDocument(fixture(c.file)));
+  for (let i = 1; i < pages.length; i++) {
+    const previousClosing = new Map(pages[i - 1].flows.map(([sector, , auc]) => [sector, auc]));
+    for (const [sector, , , opening] of pages[i].flows) assert.equal(opening, previousClosing.get(sector), `${sector} in ${cases[i].file}`);
+  }
+});
+
 test("keeps the whole page for the Excel export", () => {
   const { source } = parseDocument(fixture("2026-09-15.html"));
   const tables = source.filter((b) => b.type === "table");

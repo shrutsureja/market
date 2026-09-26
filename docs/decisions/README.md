@@ -12,11 +12,12 @@ editing history.
 | [0003](0003-store-parsed-page-not-html.md) | Store the parsed page, not the HTML file | Accepted |
 | [0004](0004-parsing-and-validation.md) | How an NSDL page is parsed and validated | Accepted |
 | [0005](0005-equity-only-analytics.md) | Analytics cover equity only | Accepted |
-| [0006](0006-flows-relative-to-auc.md) | Measure flows against opening AUC | Accepted |
+| [0006](0006-flows-relative-to-auc.md) | Measure flows against opening AUC | Accepted, amended by 0011 |
 | [0007](0007-heatmap-scales-with-history.md) | Heatmap: time window and colour basis | Accepted |
 | [0008](0008-excel-built-in-browser.md) | Excel reproduces the NSDL page and is built in the browser | Accepted |
 | [0009](0009-frontend-structure-and-look.md) | Frontend structure and Kite-style look | Accepted |
 | [0010](0010-deployment-and-hosting.md) | Deployment and hosting | Accepted |
+| [0011](0011-opening-auc-from-page.md) | Read opening AUC from the NSDL page | Accepted |
 
 Template for new records:
 

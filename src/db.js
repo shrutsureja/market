@@ -24,7 +24,7 @@ export async function listFlows(db, latestOnly) {
   const where = latestOnly ? "WHERE r.report_date = (SELECT MAX(report_date) FROM reports)" : "";
   const { results } = await db
     .prepare(
-      `SELECT f.*, r.report_date, r.period_start, r.period_end
+      `SELECT f.report_id, f.sector, f.net, f.auc, f.opening_auc, r.report_date, r.period_start, r.period_end
        FROM flows f JOIN reports r ON r.id = f.report_id ${where}
        ORDER BY r.report_date DESC, f.net DESC`,
     )
@@ -34,6 +34,7 @@ export async function listFlows(db, latestOnly) {
     sectorName: r.sector,
     equityNetInvestmentCr: r.net,
     equityAucCr: r.auc,
+    openingAucCr: r.opening_auc,
     reportDate: r.report_date,
     periodStart: r.period_start,
     periodEnd: r.period_end,
@@ -55,12 +56,17 @@ export async function importReport(db, raw, filename) {
 
   const sourceDoc = JSON.stringify(doc.source);
   const duplicate = await db
-    .prepare("SELECT id, report_date, source_doc IS NULL AS missingSource FROM reports WHERE report_date = ? OR hash = ?")
+    .prepare(
+      `SELECT id, report_date,
+              source_doc IS NULL OR EXISTS (SELECT 1 FROM flows WHERE report_id = reports.id AND opening_auc IS NULL) AS incomplete
+       FROM reports WHERE report_date = ? OR hash = ?`,
+    )
     .bind(doc.reportDate, hash)
     .first();
   if (duplicate) {
-    // Reports imported before the full page was kept can be topped up by uploading them again.
-    if (duplicate.missingSource && duplicate.report_date === doc.reportDate) {
+    // Reports imported before the full page and opening AUC were kept can be topped up by
+    // uploading them again.
+    if (duplicate.incomplete && duplicate.report_date === doc.reportDate) {
       // Only attach the page if its figures are the ones already stored; otherwise the Excel
       // sheet and the dashboard would disagree about the same fortnight.
       const { results: stored } = await db.prepare("SELECT sector, net, auc FROM flows WHERE report_id = ?").bind(duplicate.id).all();
@@ -69,7 +75,12 @@ export async function importReport(db, raw, filename) {
       if (stored.length !== doc.flows.length || !doc.flows.every(([s, n, a]) => storedKeys.has(key(s, n, a)))) {
         throw new UserError("This file's figures differ from the ones already saved for this fortnight, so it wasn't used");
       }
-      await db.prepare("UPDATE reports SET source_doc = ? WHERE id = ?").bind(sourceDoc, duplicate.id).run();
+      await db.batch([
+        db.prepare("UPDATE reports SET source_doc = ? WHERE id = ?").bind(sourceDoc, duplicate.id),
+        ...doc.flows.map(([sector, , , opening]) =>
+          db.prepare("UPDATE flows SET opening_auc = ? WHERE report_id = ? AND sector = ?").bind(opening, duplicate.id, sector),
+        ),
+      ]);
       return { id: duplicate.id, reportDate: doc.reportDate, sectorCount: doc.flows.length, backfilled: true };
     }
     throw new UserError("This fortnight is already in your dashboard");
@@ -84,7 +95,9 @@ export async function importReport(db, raw, filename) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(id, doc.reportDate, doc.periodStart, doc.periodEnd, filename, hash, now, doc.totalNet, doc.totalAuc, sourceDoc),
-    ...doc.flows.map(([sector, net, auc]) => db.prepare("INSERT INTO flows (report_id, sector, net, auc) VALUES (?, ?, ?, ?)").bind(id, sector, net, auc)),
+    ...doc.flows.map(([sector, net, auc, opening]) =>
+      db.prepare("INSERT INTO flows (report_id, sector, net, auc, opening_auc) VALUES (?, ?, ?, ?, ?)").bind(id, sector, net, auc, opening),
+    ),
   ];
 
   try {

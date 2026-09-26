@@ -79,12 +79,8 @@ npm run deploy
 The custom domain comes from `routes` in `wrangler.jsonc` (`custom_domain: true`); it needs the
 domain's zone on the same Cloudflare account. Then re-upload the NSDL HTML files.
 
-## Pending for the next deploy
+## Re-uploading older fortnights
 
-Migration `0002_source_doc.sql` (stores the full NSDL page for Excel) is not yet applied to
-production. When deploying the change that introduced it:
-
-1. `npm run db:migrate:remote`, then `npm run deploy`.
-2. Re-upload each fortnight's HTML so its Excel includes the full NSDL page. Reports list shows
-   which ones are "Summary only".
-3. Delete this section.
+Fortnights imported before migrations 0002 (full NSDL page for Excel) and 0003 (opening AUC)
+lack that data. Upload the same HTML again to fill it in; the Reports page shows "Summary only"
+for any missing the full page. A re-upload is refused if its figures differ from the stored ones.
