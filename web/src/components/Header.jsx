@@ -13,7 +13,9 @@ export function Header({ view, busy, onUpload }) {
         <span>
           INDIAN EQUITIES <span className="separator">/</span> FOREIGN INVESTOR FLOWS
         </span>
-        <span className="source">● NSDL reports</span>
+        <a className="source" href="https://www.fpi.nsdl.co.in/web/Reports/FPI_Fortnightly_Selection.aspx" target="_blank" rel="noopener noreferrer">
+          ● NSDL reports ↗
+        </a>
       </div>
       <header>
         <div>
