@@ -1,17 +1,26 @@
+import {combineCompanies} from '../src/company-upload.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {parseCompanies,companyDiff} from '../src/companies.js';
-import {getCompanies,previewCompanies,confirmCompanies} from '../src/company-db.js';
+import {parseCompanies,companyDiff,csvRows} from '../src/companies.js';
+import {getCompanies,previewCompanies as stageCompanies,reviewCompanies,confirmCompanies} from '../src/company-db.js';
 import worker from '../src/worker.js';
 
 const total=readFileSync(new URL('../fixtures/companies/total-market-2026-10-18.csv',import.meta.url),'utf8');
 const small=readFileSync(new URL('../fixtures/companies/nifty500-2026-10-18.csv',import.meta.url),'utf8');
 const input=(text=total)=>({text,filename:'list.csv',source:'Nifty Total Market',downloadedOn:'2026-10-18'});
 
+async function previewCompanies(db,input){
+ const [header,...rows]=csvRows(input.text);if(!rows.length)return stageCompanies(db,input);
+ const encode=row=>row.map(v=>'"'+v.replaceAll('"','""')+'"').join(',');const tokens=[];
+ for(let i=0;i<rows.length;i+=100){const part=[header,...rows.slice(i,i+100)].map(encode).join('\n');tokens.push((await stageCompanies(db,{...input,text:part})).token);}
+ const draft=await combineCompanies(db,{tokens});return reviewCompanies(db,draft.token);
+}
+
 function database(){
   const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../migrations/0004_company_directory.sql',import.meta.url),'utf8'));
+  sqlite.exec(readFileSync(new URL('../migrations/0005_company_upload_chunks.sql',import.meta.url),'utf8'));
   return {sqlite,prepare(sql){return {bind(...args){return {run:async()=>({meta:{changes:sqlite.prepare(sql).run(...args).changes}}),first:async()=>sqlite.prepare(sql).get(...args)||null};},first:async()=>sqlite.prepare(sql).get()||null};},
     async batch(statements){sqlite.exec('BEGIN');try{const results=[];for(const s of statements)results.push(await s.run());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
 }
@@ -74,4 +83,26 @@ test('API rejects cross-origin writes, oversized payloads and bad JSON',async()=
     new Request('https://example.com/api/companies/confirm',{method:'POST',body:'invalid'})]){
     const response=await worker.fetch(req,{});assert([400,403].includes(response.status));assert((await response.json()).error);
   }
+});
+
+ test('source and upload time are server-owned, not caller-selected',async()=>{
+  const db=database();try{
+    const before=Date.now();
+    const p=await previewCompanies(db,{...input(),source:'Nifty 500',downloadedOn:'2000-01-01',uploadedAt:'2000-01-01'});
+    assert.equal(p.source,'Nifty Total Market');assert(Date.parse(p.uploadedAt)>=before);
+    await confirmCompanies(db,{token:p.token,confirmed:true});
+    assert.equal((await getCompanies(db)).metadata.uploadedAt,p.uploadedAt);
+  }finally{db.sqlite.close();}
+ });
+
+test('partial chunks cannot activate; duplicates across chunks cannot assemble',async()=>{
+ const db=database();try{
+   const [header,row]=csvRows(total),text=[header,row].map(r=>r.join(',')).join('\n');
+   const a=await stageCompanies(db,input(text)),b=await stageCompanies(db,input(text));
+   await assert.rejects(()=>confirmCompanies(db,{token:a.token,confirmed:true}));
+   await assert.rejects(()=>reviewCompanies(db,a.token));
+   await assert.rejects(()=>combineCompanies(db,{tokens:[a.token,b.token]}),/duplicate/);
+   await assert.rejects(()=>combineCompanies(db,{tokens:[a.token,a.token]}));
+   assert.equal((await getCompanies(db)).version,null);
+ }finally{db.sqlite.close();}
 });

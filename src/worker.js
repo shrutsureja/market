@@ -1,8 +1,9 @@
+import {combineCompanies} from './company-upload.js';
 // Single Worker: serves the built React app and the small JSON API behind it. Excel files are
 // built in the browser (web/src/lib/xlsx.js) — too CPU-heavy for the free plan's per-request limit.
 import { listReports, listFlows, importReport, getReportWithFlows } from "./db.js";
 import { UserError } from "./errors.js";
-import {getCompanies,previewCompanies,confirmCompanies} from './company-db.js';
+import {getCompanies,previewCompanies,reviewCompanies,confirmCompanies} from './company-db.js';
 
 const MAX_UPLOAD = 10 * 1024 * 1024;
 
@@ -34,6 +35,8 @@ export default {
         }
         if(path==='/api/companies'&&request.method==='GET')return json(await getCompanies(env.DB));
         if(path==='/api/companies/preview'&&request.method==='POST')return json(await previewCompanies(env.DB,await companyInput(request)));
+        if(path.startsWith('/api/companies/review/')&&request.method==='GET')return json(await reviewCompanies(env.DB,decodeURIComponent(path.slice('/api/companies/review/'.length))));
+        if(path==='/api/companies/combine'&&request.method==='POST')return json(await combineCompanies(env.DB,await companyInput(request)));
         if(path==='/api/companies/confirm'&&request.method==='POST')return json(await confirmCompanies(env.DB,await companyInput(request)));
       }
       if (path === "/api/reports" && request.method === "GET") {

@@ -14,8 +14,8 @@ export function CompanyTable({rows}) {
 export function SectorCompanies({sector,directory,loading,error,onManage,onRetry}) {
   const rows=directory.companies.filter(c=>c.sector===sector);
   return <section className="panel"><div className="section-header"><div><h2>Companies in {sector}</h2><p>From the current uploaded company list—not individual FPI transactions.</p></div><button className="text-button" onClick={onManage}>Manage company list →</button></div>
-    {loading?<p>Loading companies…</p>:error?<div role="alert">{error} <button onClick={onRetry}>Try again</button></div>:!directory.metadata?<p>No company list uploaded yet. Add a Nifty Total Market or Nifty 500 CSV in Company list.</p>:<>
-    <p>{rows.length} entries in this sector · {directory.metadata.source} · Download date supplied: {directory.metadata.downloadedOn}</p>
+    {loading?<p>Loading companies…</p>:error?<div role="alert">{error} <button onClick={onRetry}>Try again</button></div>:!directory.metadata?<p>No company list uploaded yet. Add a Nifty Total Market CSV in Company list.</p>:<>
+    <p>{rows.length} entries in this sector · {directory.metadata.source} · Uploaded {new Date(directory.metadata.uploadedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST</p>
     <p className="company-note">This is current list membership, even when viewing an older fortnight. It is not every company in the sector or the exact set of FPI holdings.</p>
     {rows.length?<CompanyTable key={sector+directory.version} rows={rows}/>:<p>No companies from the uploaded list are classified here. This does not mean there are no companies in this sector.</p>}
     </>}

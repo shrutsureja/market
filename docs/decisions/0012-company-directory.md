@@ -1,6 +1,6 @@
 # 0012 — Replaceable sector company directory
 
-Status: Accepted (2026-10-18)
+Status: Amended by [0013](0013-simple-company-upload.md) (2026-10-18)
 
 ## Context
 

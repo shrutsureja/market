@@ -82,8 +82,8 @@ consistent with the existing no-login design.
 Review desktop/390px mobile layouts, company searches, 755→501 preview and cancellation,
 invalid CSV rejection, confirmation and stale-preview rejection before approving a PR.
 Do not merge or deploy production until the owner approves. After an approved merge, apply
-0004 to production using the normal migration command before deploying, then separately upload
-and confirm the desired company directory there. Preview data is not migrated automatically.
+0004 and 0005 to production using the normal migration command before deploying, then let the owner upload
+and confirm their desired company directory there. Do not seed production companies. Preview data is not migrated automatically.
 Rollback preview code using `wrangler rollback <version-id> --config wrangler.companies-preview.jsonc`;
 the active directory and additive migration remain. Confirm a prior CSV to restore membership.
 
@@ -97,9 +97,9 @@ with four explicitly marked temporary entries; all three fixture reports are loa
 console was clean on the deployed normal flows. An intentionally rejected local upload logged
 the expected HTTP 400, with a readable error and unchanged saved data.
 
-**Pre-merge limitation:** Cloudflare tail measured 17–32 ms CPU on full-list preview requests;
+**Initial preview measurement (superseded implementation):** Cloudflare tail measured 17–32 ms CPU on full-list preview requests;
 all returned 200, but this exceeds the repository's conservative free-plan target. Reads and
-confirmations measured 1–8 ms. See ADR 0012; resolve and remeasure before production promotion.
+confirmations measured 1–8 ms. See ADR 0013 for the bounded upload implementation and updated verification.
 
 ## Production rollback
 
@@ -130,3 +130,11 @@ domain's zone on the same Cloudflare account. Then re-upload the NSDL HTML files
 Fortnights imported before migrations 0002 (full NSDL page for Excel) and 0003 (opening AUC)
 lack that data. Upload the same HTML again to fill it in; the Reports page shows "Summary only"
 for any missing the full page. A re-upload is refused if its figures differ from the stored ones.
+
+### Approved company upload revision
+
+The owner approved promotion after the one-button revision. Apply migrations 0004 and 0005
+before deployment. Production company data must remain empty until the owner uploads their CSV;
+do not copy preview snapshots or seed company fixtures. The new flow automatically batches the
+single selected file and records upload time. See ADR 0013 for CPU measurements (2–8 ms per
+validation batch in the 755-entry live check), API changes, and 23 passing tests.

@@ -43,12 +43,12 @@ export function validIsin(value) {
   return sum%10===0;
 }
 
-export function parseCompanies(text) {
+export function parseCompanies(text,maxRows=5000) {
   if(typeof text!=='string'||new TextEncoder().encode(text).length>MAX_CSV_BYTES)throw new UserError('Choose a UTF-8 CSV smaller than 1 MB');
   const [headers,...rows]=csvRows(text);
   if(!headers||headers.length!==5||new Set(headers).size!==5||!HEADERS.every(h=>headers.includes(h)))
-    throw new UserError('Expected columns: Company Name, Industry, Symbol, Series, ISIN Code. EQUITY_L.csv has no sector classification and cannot replace this list.');
-  if(!rows.length||rows.length>5000)throw new UserError('CSV must contain between 1 and 5,000 companies');
+    throw new UserError('Expected columns: Company Name, Industry, Symbol, Series, ISIN Code.');
+  if(!rows.length||rows.length>maxRows)throw new UserError(`CSV batch must contain between 1 and ${maxRows} companies`);
   const symbols=new Set(),isins=new Set();
   const indexes=HEADERS.map(h=>headers.indexOf(h));
   return rows.map((row,i)=>{

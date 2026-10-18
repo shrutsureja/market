@@ -26,6 +26,7 @@ src/parser.js         readDocument (whole page as blocks) + parseDocument (secto
 src/db.js             D1 access; importReport handles duplicates and re-upload backfill
 src/companies.js      constituent CSV validation, sector mapping, replacement diff
 src/company-db.js     immutable directory snapshots, preview and atomic confirmation
+src/company-upload.js assemble validated batches, enforce cross-batch uniqueness in D1
 src/errors.js         UserError = message safe to show the user (400); anything else is a 503
 migrations/           append-only D1 schema
 web/src/App.jsx       top-level state and derived data
@@ -75,3 +76,6 @@ commands for preview work. See deployment.md and ADR 0012 for directory data sem
 - **Opening AUC** — AUC at the start of the fortnight, as printed on the NSDL page (its first
   AUC group). Equals the previous report's closing AUC.
 - **Fortnight / report** — one NSDL page: the 1st–15th or 16th–end of a month.
+
+Company uploads use one fixed Nifty Total Market source with server-recorded upload time.
+The owner will populate production personally; never seed it from preview fixtures. See ADR 0013.
