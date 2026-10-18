@@ -27,6 +27,7 @@ src/db.js             D1 access; importReport handles duplicates and re-upload b
 src/companies.js      constituent CSV validation, sector mapping, replacement diff
 src/company-db.js     immutable directory snapshots, preview and atomic confirmation
 src/company-upload.js assemble validated batches, enforce cross-batch uniqueness in D1
+web/src/lib/kite.js  map Zerodha NSE symbols to instrument tokens for chart links
 src/errors.js         UserError = message safe to show the user (400); anything else is a 503
 migrations/           append-only D1 schema
 web/src/App.jsx       top-level state and derived data
@@ -79,3 +80,5 @@ commands for preview work. See deployment.md and ADR 0012 for directory data sem
 
 Company uploads use one fixed Nifty Total Market source with server-recorded upload time.
 The owner will populate production personally; never seed it from preview fixtures. See ADR 0013.
+Kite chart links use Zerodha's public NSE instrument dump through `/api/kite-instruments`;
+see ADR 0014. No Kite login/API credentials are stored in this app.

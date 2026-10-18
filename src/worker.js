@@ -39,6 +39,11 @@ export default {
         if(path==='/api/companies/combine'&&request.method==='POST')return json(await combineCompanies(env.DB,await companyInput(request)));
         if(path==='/api/companies/confirm'&&request.method==='POST')return json(await confirmCompanies(env.DB,await companyInput(request)));
       }
+      if(path==='/api/kite-instruments'&&request.method==='GET') {
+        const upstream=await fetch('https://api.kite.trade/instruments/NSE');
+        if(!upstream.ok)throw new Error('Kite instrument list unavailable');
+        return new Response(upstream.body,{headers:{'Content-Type':'text/csv; charset=utf-8','Cache-Control':'public, max-age=3600'}});
+      }
       if (path === "/api/reports" && request.method === "GET") {
         return json(await listReports(env.DB));
       }

@@ -101,6 +101,13 @@ the expected HTTP 400, with a readable error and unchanged saved data.
 all returned 200, but this exceeds the repository's conservative free-plan target. Reads and
 confirmations measured 1–8 ms. See ADR 0013 for the bounded upload implementation and updated verification.
 
+## Kite chart links
+
+`GET /api/kite-instruments` streams Zerodha's public NSE instrument CSV. The browser builds
+symbol-to-token links; no Kite account integration or database migration is required. After a
+deploy, confirm HDFC Bank and Tata Power open the expected Kite web chart URL, and check a phone
+width. Native Kite app launch is not guaranteed by the documented web chart URL (ADR 0014).
+
 ## Production rollback
 
 ```sh
