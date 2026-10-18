@@ -11,6 +11,20 @@ Every fortnight, NSDL publishes a new report. Open it in the browser, save the p
 (Ctrl+S, "Webpage, HTML only") and upload that `.html` file with **+ Add report**. A fortnight
 can't be imported twice; re-uploading one saved before full pages were kept fills in its Excel.
 
+## Companies in a sector
+
+Open **Sector detail** to see companies from your current uploaded list below the flow history.
+Use **Company list → Upload company list** to select one Nifty Total Market constituent CSV, validate it,
+review old/new counts and added/removed/changed entries, then confirm replacement. Cancellation
+or a rejected file leaves the saved list intact. Official download links are on that screen.
+This shows current index membership, including marked temporary entries, not stock-level FPI
+trades or historical membership. Upload time is recorded automatically; the source is fixed.
+
+Company API: `GET /api/companies`, `POST /api/companies/preview` (JSON: text, filename; at most
+100 rows per batch), `POST /api/companies/combine` (tokens), `GET /api/companies/review/:token`,
+and `POST /api/companies/confirm` (token, confirmed: true). The browser batches one CSV automatically. Previews expire
+after 30 minutes and reject confirmation if another upload has since replaced the directory.
+
 ## How it's built
 
 One Cloudflare Worker serves the React app and a small JSON API, backed by one D1 (SQLite)
@@ -39,7 +53,7 @@ API: `GET /api/reports`, `GET /api/flows[/latest]`, `POST /api/reports/import` (
 
 ## Quick start
 
-Node.js 20+:
+Node.js 22.16+ (including the built-in SQLite test runtime):
 
 ```sh
 npm install && npm --prefix web install

@@ -4,6 +4,7 @@ const TITLES = {
   "Sector detail": "Get to know a sector.",
   "Compare periods": "What changed between periods?",
   Reports: "Your report library.",
+  'Company list':'Which companies belong to each sector?',
 };
 
 export function Header({ view, busy, onUpload }) {
@@ -21,7 +22,7 @@ export function Header({ view, busy, onUpload }) {
         <div>
           <div className="eyebrow">FOLLOW THE MONEY, EVERY FORTNIGHT</div>
           <h1>{TITLES[view]}</h1>
-          <p>Understand where foreign investors are adding money—and where they are pulling back.</p>
+          <p>{view==='Company list'?'Manage the current company directory used on sector detail pages.':'Understand where foreign investors are adding money—and where they are pulling back.'}</p>
         </div>
         <label className="upload">
           {busy ? "Importing…" : "+ Add report"}

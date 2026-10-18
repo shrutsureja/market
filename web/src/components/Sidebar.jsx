@@ -4,6 +4,7 @@ const VIEWS = [
   ["Sector detail", "⌁"],
   ["Compare periods", "⇄"],
   ["Reports", "▤"],
+  ["Company list", "▥"],
 ];
 
 export function Sidebar({ view, setView }) {

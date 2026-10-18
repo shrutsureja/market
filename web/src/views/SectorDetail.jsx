@@ -1,7 +1,8 @@
 import { date, flowShare, number, pct, signed, sum, tone } from "../lib/format.js";
 import { FlowChart } from "../components/FlowChart.jsx";
+import {SectorCompanies} from '../components/CompanyTable.jsx';
 
-export function SectorDetail({ reports, sector, setSector, sectors, currentFlow, history }) {
+export function SectorDetail({ reports, sector, setSector, sectors, currentFlow, history,companies,onManageCompanies }) {
   return (
     <>
       <section className="panel">
@@ -74,6 +75,7 @@ export function SectorDetail({ reports, sector, setSector, sectors, currentFlow,
           </tbody>
         </table>
       </section>
+      <SectorCompanies sector={sector} {...companies} onRetry={companies.load} onManage={onManageCompanies}/>
     </>
   );
 }
