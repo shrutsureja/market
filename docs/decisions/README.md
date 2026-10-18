@@ -18,6 +18,7 @@ editing history.
 | [0009](0009-frontend-structure-and-look.md) | Frontend structure and Kite-style look | Accepted |
 | [0010](0010-deployment-and-hosting.md) | Deployment and hosting | Accepted |
 | [0011](0011-opening-auc-from-page.md) | Read opening AUC from the NSDL page | Accepted |
+| [0012](0012-company-directory.md) | Validated, replaceable sector company directory | Accepted |
 
 Template for new records:
 

@@ -10,8 +10,12 @@ import { SectorHeatmap } from "./views/SectorHeatmap.jsx";
 import { SectorDetail } from "./views/SectorDetail.jsx";
 import { ComparePeriods } from "./views/ComparePeriods.jsx";
 import { Reports } from "./views/Reports.jsx";
+import {useCompanies} from './hooks/useCompanies.js';
+import {CompanyDirectory} from './views/CompanyDirectory.jsx';
+import './companies.css';
 
 export function App() {
+  const companies=useCompanies();
   const { reports, flows: rawFlows, loading, busy, error, message, load, upload } = useReports();
   const all = withOpeningAuc(rawFlows);
   const [view, setView] = useState("Overview");
@@ -57,7 +61,7 @@ export function App() {
             {message}
           </div>
         )}
-        {loading ? (
+        {view==='Company list' ? <CompanyDirectory {...companies}/> : loading ? (
           <div className="panel empty">Loading your reports…</div>
         ) : !reports.length ? (
           <div className="panel empty">
@@ -72,6 +76,8 @@ export function App() {
             {view === "Sector heatmap" && <SectorHeatmap reports={reports} flows={all} sectors={sectors} onSelectSector={inspect} />}
             {view === "Sector detail" && (
               <SectorDetail
+                companies={companies}
+                onManageCompanies={()=>setView('Company list')}
                 reports={reports}
                 sector={activeSector}
                 setSector={(name) => {
@@ -84,9 +90,9 @@ export function App() {
             )}
             {view === "Compare periods" && <ComparePeriods reports={reports} selected={activeSelected} compare={activeCompare} setCompare={setCompare} differences={differences} onSelectSector={inspect} />}
             {view === "Reports" && <Reports reports={reports} />}
-            <Explainer reportCount={reports.length} />
           </>
         )}
+        <Explainer reportCount={reports.length} />
       </main>
     </div>
   );

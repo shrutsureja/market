@@ -2,11 +2,23 @@
 // built in the browser (web/src/lib/xlsx.js) — too CPU-heavy for the free plan's per-request limit.
 import { listReports, listFlows, importReport, getReportWithFlows } from "./db.js";
 import { UserError } from "./errors.js";
+import {getCompanies,previewCompanies,confirmCompanies} from './company-db.js';
 
 const MAX_UPLOAD = 10 * 1024 * 1024;
 
 function json(data, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+async function companyInput(request) {
+  // Bound actual streamed bytes, not just the optional Content-Length header.
+  if(!request.body)throw new UserError('Upload data is missing');
+  const reader=request.body.getReader(),chunks=[];let size=0;
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;
+    if(size>1150000){await reader.cancel();throw new UserError('CSV request is too large (maximum 1 MB file)');}chunks.push(value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
+  try{const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))throw Error();return value;}
+  catch{throw new UserError('Invalid upload data; choose a UTF-8 CSV');}
 }
 
 export default {
@@ -15,6 +27,15 @@ export default {
     const path = url.pathname;
 
     try {
+      if(path.startsWith('/api/companies')) {
+        if(request.method==='POST') {
+          const origin=request.headers.get('Origin');
+          if((origin&&origin!==url.origin)||request.headers.get('Sec-Fetch-Site')==='cross-site')return json({error:'Cross-origin updates are not allowed'},403);
+        }
+        if(path==='/api/companies'&&request.method==='GET')return json(await getCompanies(env.DB));
+        if(path==='/api/companies/preview'&&request.method==='POST')return json(await previewCompanies(env.DB,await companyInput(request)));
+        if(path==='/api/companies/confirm'&&request.method==='POST')return json(await confirmCompanies(env.DB,await companyInput(request)));
+      }
       if (path === "/api/reports" && request.method === "GET") {
         return json(await listReports(env.DB));
       }

@@ -24,6 +24,8 @@ https://fpi.shrutsureja.com. Not investment advice.
 src/worker.js         Worker routes (static assets, /api/*)
 src/parser.js         readDocument (whole page as blocks) + parseDocument (sector equity flows)
 src/db.js             D1 access; importReport handles duplicates and re-upload backfill
+src/companies.js      constituent CSV validation, sector mapping, replacement diff
+src/company-db.js     immutable directory snapshots, preview and atomic confirmation
 src/errors.js         UserError = message safe to show the user (400); anything else is a 503
 migrations/           append-only D1 schema
 web/src/App.jsx       top-level state and derived data
@@ -31,6 +33,7 @@ web/src/views/        one file per screen (Overview, SectorHeatmap, SectorDetail
 web/src/components/   shared pieces (Ranking, FlowChart, Header, ...)
 web/src/lib/          format.js (numbers/%), flows.js (opening AUC), xlsx.js (Excel builder)
 fixtures/             real NSDL pages; tests depend on their exact figures
+fixtures/companies/   official dated constituent snapshots and provenance
 ```
 
 ## Commands
@@ -43,6 +46,10 @@ npm --prefix web run dev      # optional: Vite hot reload on :5173 (proxies /api
 npm test                      # all tests (root discovers web tests too)
 npm run build                 # production frontend build
 ```
+
+Use Node 22.16+ for tests (company transaction tests use built-in node:sqlite).
+Feature preview uses `wrangler.companies-preview.jsonc`; never use production deploy/migrate
+commands for preview work. See deployment.md and ADR 0012 for directory data semantics.
 
 ## Key rules (full list in docs/rules.md)
 
