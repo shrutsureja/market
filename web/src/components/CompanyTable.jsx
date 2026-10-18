@@ -1,12 +1,14 @@
 import {useState} from 'react';
 
+const chartUrl=symbol=>`https://in.tradingview.com/chart/?symbol=${encodeURIComponent(`NSE:${symbol}`)}`;
+
 export function CompanyTable({rows}) {
   const [query,setQuery]=useState(''),[page,setPage]=useState(0);
   const filtered=rows.filter(r=>[r.name,r.symbol,r.isin].some(v=>v.toLowerCase().includes(query.toLowerCase())));
   const pages=Math.max(1,Math.ceil(filtered.length/25)),current=Math.min(page,pages-1);
   return <><label className="company-search">Find a company or symbol<input className="search" type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} placeholder="Company, symbol or ISIN"/></label>
     <div className="table-wrap"><table className="company-table"><thead><tr><th>Company / security</th><th>Symbol</th><th>Series</th><th>ISIN / identifier</th><th>Sector</th></tr></thead><tbody>
-      {filtered.slice(current*25,(current+1)*25).map(r=><tr key={r.isin}><td>{r.name}{r.placeholder&&<small className="placeholder-badge">Temporary index entry · not a normal listed stock</small>}</td><td>{r.symbol}</td><td>{r.series}</td><td>{r.isin}</td><td>{r.sector}</td></tr>)}
+      {filtered.slice(current*25,(current+1)*25).map(r=><tr key={r.isin}><td>{r.placeholder?r.name:<a className="company-chart-link" href={chartUrl(r.symbol)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name} chart on TradingView in a new tab`}>{r.name}</a>}{r.placeholder&&<small className="placeholder-badge">Temporary index entry · not a normal listed stock</small>}</td><td>{r.symbol}</td><td>{r.series}</td><td>{r.isin}</td><td>{r.sector}</td></tr>)}
       {!filtered.length&&<tr><td colSpan="5">No companies match your search.</td></tr>}
     </tbody></table></div><div className="company-pagination"><span>{filtered.length} matching entries · Page {current+1} of {pages}</span><button disabled={current===0} onClick={()=>setPage(current-1)}>Previous</button><button disabled={current>=pages-1} onClick={()=>setPage(current+1)}>Next</button></div></>;
 }
