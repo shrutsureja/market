@@ -20,6 +20,7 @@ editing history.
 | [0011](0011-opening-auc-from-page.md) | Read opening AUC from the NSDL page | Accepted |
 | [0012](0012-company-directory.md) | Validated, replaceable sector company directory | Amended by 0013 |
 | [0013](0013-simple-company-upload.md) | One upload button with bounded server processing | Accepted |
+| [0014](0014-kite-chart-links.md) | Resolve Kite chart links from Zerodha's NSE instrument list | Accepted |
 
 Template for new records:
 

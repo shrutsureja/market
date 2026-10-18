@@ -14,9 +14,12 @@ can't be imported twice; re-uploading one saved before full pages were kept fill
 ## Companies in a sector
 
 Open **Sector detail** to see companies from your current uploaded list below the flow history.
-Click a company name to open its NSE chart in a new tab on TradingView India. The link uses the
-TradingView account signed in within that browser. Each account opens its own chart workspace;
-temporary index entries have no chart link.
+Click a company name to open its NSE chart in Kite in a new tab, using the Kite login in that
+browser. Names are linked only when Zerodha's current NSE instrument list has a matching symbol;
+temporary index entries have no chart link. The same link works through a mobile browser;
+opening the native Kite app from a chart link is not guaranteed. The instrument list is refreshed
+from Zerodha and cached for one hour. For listings such as REITs and BE-series stocks, the link
+uses Kite's series-suffixed trading symbol when available (for example, `EMBASSY-RR`).
 Use **Company list → Upload company list** to select one Nifty Total Market constituent CSV, validate it,
 review old/new counts and added/removed/changed entries, then confirm replacement. Cancellation
 or a rejected file leaves the saved list intact. Official download links are on that screen.
