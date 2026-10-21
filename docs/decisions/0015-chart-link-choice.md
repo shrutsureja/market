@@ -8,8 +8,10 @@ The company name opens the owner's TradingView chart layout with the NSE symbol 
 Android, the link requests TradingView's installed app using a Chrome intent and falls back to
 the same web chart. Other browsers use the regular HTTPS chart URL and their own app-link behavior.
 
-Kite remains a clearly labeled secondary link under the company name when Zerodha's current NSE
-instrument list contains the security. Temporary directory entries have no chart link.
+On desktop, Kite remains a clearly labeled secondary link in the last table column when Zerodha's
+current NSE instrument list contains the security. The Kite column is hidden in the mobile layout,
+where selecting the company name is the only chart action. Temporary directory entries have no
+chart link.
 
 ## Limits
 
