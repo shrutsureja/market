@@ -1,23 +1,20 @@
 import {useState} from 'react';
 import {useKiteInstruments} from '../hooks/useKiteInstruments.js';
 import {kiteChartUrlForCompany} from '../lib/kite.js';
-import {tradingViewLink} from '../lib/tradingview.js';
 
 export function CompanyTable({rows}) {
   const [query,setQuery]=useState(''),[page,setPage]=useState(0);
   const {tokens,loading:kiteLoading,error:kiteError}=useKiteInstruments();
-  const isAndroid=typeof navigator!=='undefined'&&/Android/i.test(navigator.userAgent);
   const filtered=rows.filter(r=>[r.name,r.symbol,r.isin].some(v=>v.toLowerCase().includes(query.toLowerCase())));
   const pages=Math.max(1,Math.ceil(filtered.length/25)),current=Math.min(page,pages-1);
-  return <><p className="company-note">Select a company name to open its TradingView chart.<span className="company-desktop-only"> For Kite, use the link in the last column.</span></p><label className="company-search">Find a company or symbol<input className="search" type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} placeholder="Company, symbol or ISIN"/></label>
-    {kiteError?<p className="company-note company-desktop-only" role="alert">{kiteError}. TradingView charts are still available.</p>:null}
-    <div className="table-wrap"><table className="company-table"><thead><tr><th>Company / security</th><th>Symbol</th><th>Series</th><th>ISIN / identifier</th><th>Sector</th><th className="company-kite-column">Kite chart</th></tr></thead><tbody>
+  return <><label className="company-search">Find a company or symbol<input className="search" type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} placeholder="Company, symbol or ISIN"/></label>
+    {kiteLoading?<p className="company-note">Loading Kite chart links…</p>:kiteError?<p className="company-note" role="alert">{kiteError}. Please retry the page.</p>:null}
+    <div className="table-wrap"><table className="company-table"><thead><tr><th>Company / security</th><th>Symbol</th><th>Series</th><th>ISIN / identifier</th><th>Sector</th></tr></thead><tbody>
       {filtered.slice(current*25,(current+1)*25).map(r=>{
-        const tradingViewHref=tradingViewLink(r,isAndroid);
-        const kiteHref=kiteLoading?null:kiteChartUrlForCompany(r,tokens);
-        return <tr key={r.isin}><td>{tradingViewHref?<a className="company-chart-link" href={tradingViewHref} target={isAndroid?'_self':'_blank'} rel="noopener noreferrer" aria-label={`Open ${r.name} chart on TradingView${isAndroid?' app':' in a new tab'}`}>{r.name}</a>:r.name}{r.placeholder&&<small className="placeholder-badge">Temporary index entry · not a normal listed stock</small>}</td><td>{r.symbol}</td><td>{r.series}</td><td>{r.isin}</td><td>{r.sector}</td><td className="company-kite-column">{kiteHref&&<a className="company-kite-link" href={kiteHref} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name} chart on Kite in a new tab`}>Open in Kite ↗</a>}</td></tr>;
+        const href=kiteChartUrlForCompany(r,tokens);
+        return <tr key={r.isin}><td>{href?<a className="company-chart-link" href={href} target="_blank" rel="noopener noreferrer" aria-label={`Open ${r.name} chart on Kite in a new tab`}>{r.name}</a>:r.name}{r.placeholder&&<small className="placeholder-badge">Temporary index entry · not a normal listed stock</small>}</td><td>{r.symbol}</td><td>{r.series}</td><td>{r.isin}</td><td>{r.sector}</td></tr>;
       })}
-      {!filtered.length&&<tr><td colSpan="6">No companies match your search.</td></tr>}
+      {!filtered.length&&<tr><td colSpan="5">No companies match your search.</td></tr>}
     </tbody></table></div><div className="company-pagination"><span>{filtered.length} matching entries · Page {current+1} of {pages}</span><button disabled={current===0} onClick={()=>setPage(current-1)}>Previous</button><button disabled={current>=pages-1} onClick={()=>setPage(current+1)}>Next</button></div></>;
 }
 
